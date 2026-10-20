@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TALA Diagram Renderer</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #e9ecef;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --error-color: #dc3545;
+            --success-color: #198754;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a2e;
+                --bg-secondary: #16213e;
+                --bg-tertiary: #0f3460;
+                --text-primary: #e4e4e4;
+                --text-secondary: #a0a0a0;
+                --border-color: #2d3748;
+                --accent-color: #4a9eff;
+                --accent-hover: #63b3ff;
+                --error-color: #ef4444;
+                --success-color: #22c55e;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            min-width: 300px;
+        }
+
+        .panel-header {
+            background: var(--bg-secondary);
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-textarea {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: var(--font-mono),serif;
+            font-size: 14px;
+            line-height: 1.6;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+        }
+
+        .preview-container {
+            flex: 1;
+            padding: 24px;
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+        }
+
+        .preview-container svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .status-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 6px 16px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .status-bar.error {
+            color: var(--error-color);
+        }
+
+        .status-bar.success {
+            color: var(--success-color);
+        }
+
+        button {
+            padding: 6px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.15s ease;
+        }
+
+        button:hover {
+            background: var(--bg-tertiary);
+        }
+
+        button.primary {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        button.primary:hover {
+            background: var(--accent-hover);
+        }
+
+        select {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        .sample-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .sample-buttons button {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            color: var(--text-secondary);
+        }
+
+        .error-message {
+            background: var(--error-color);
+            color: white;
+            padding: 12px 16px;
+            margin: 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .placeholder-text {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading D2 renderer...</div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <h1>TALA Diagram Renderer</h1>
+            <div class="header-controls">
+                <div class="sample-buttons">
+                    <button onclick="loadSample('basic')">Basic</button>
+                    <button onclick="loadSample('architecture')">Architecture</button>
+                    <button onclick="loadSample('sequence')">Sequence</button>
+                </div>
+                <select id="layout-select" onchange="renderDiagram()">
+                    <option value="tala" selected>TALA</option>
+                    <option value="dagre">Dagre</option>
+                    <option value="elk">ELK</option>
+                </select>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="sketch-checkbox" onchange="renderDiagram()">
+                    Sketch
+                </label>
+                <button class="primary" onclick="renderDiagram()">Render</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="editor-panel">
+                <div class="panel-header">
+                    <span>D2 Source</span>
+                    <span>Press Ctrl+Enter to render</span>
+                </div>
+                <textarea
+                    class="editor-textarea"
+                    id="d2-editor"
+                    placeholder="Enter your D2 diagram source here..."
+                    spellcheck="false"
+                ></textarea>
+            </div>
+
+            <div class="preview-panel">
+                <div class="panel-header">
+                    <span>Preview</span>
+                    <button onclick="downloadSvg()">Download SVG</button>
+                </div>
+                <div class="preview-container" id="preview">
+                    <span class="placeholder-text">Render a diagram to see the preview</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar" id="status-bar">
+            <span id="status-text">Initializing...</span>
+            <span id="status-time"></span>
+        </div>
+    </div>
+
+    <!-- Load @d2lang/d2 from CDN using import map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "@d2lang/d2": "https://unpkg.com/@d2lang/d2@0.1.34/dist/browser/index.js"
+            }
+        }
+    </script>
+
+    <!-- Load our Rust WASM module -->
+    <script type="module">
+        import init, { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence } from './pkg/tala_diagram_app.js';
+        import { D2 } from '@d2lang/d2';
+
+        // Expose samples globally
+        window.__samples = {
+            basic: sample_diagram,
+            architecture: sample_architecture,
+            sequence: sample_sequence
+        };
+
+        let wasmInitialized = false;
+
+        async function initWasm() {
+            try {
+                await init();
+                wasmInitialized = true;
+                console.log('WASM module initialized');
+                setStatus('Ready', 'success');
+            } catch (e) {
+                console.error('Failed to initialize WASM:', e);
+                setStatus('WASM init failed: ' + e.message, 'error');
+            }
+        }
+
+        // Initialize WASM (D2 is imported, so no need to wait)
+        initWasm();
+
+        // Make render function available globally
+        window.renderDiagram = async function() {
+            const source = document.getElementById('d2-editor').value;
+            const layout = document.getElementById('layout-select').value;
+            const sketch = document.getElementById('sketch-checkbox').checked;
+            const preview = document.getElementById('preview');
+
+            if (!source.trim()) {
+                preview.innerHTML = '<span class="placeholder-text">Enter D2 source to render</span>';
+                return;
+            }
+
+            setStatus('Rendering...', '');
+            const startTime = performance.now();
+
+            try {
+                // Use D2 directly since the Rust module bridges to it
+                const d2 = new D2();
+
+                const compileResult = await d2.compile({
+                    fs: { index: source },
+                    options: {
+                        layout: layout,
+                        sketch: sketch
+                    }
+                });
+
+                const svg = await d2.render(compileResult.diagram, compileResult.options);
+                await d2.dispose();
+
+                const elapsed = (performance.now() - startTime).toFixed(0);
+                preview.innerHTML = svg;
+                setStatus(`Rendered in ${elapsed}ms`, 'success');
+                document.getElementById('status-time').textContent = new Date().toLocaleTimeString();
+
+            } catch (e) {
+                console.error('Render error:', e);
+                preview.innerHTML = `<div class="error-message">Error: ${e.message || String(e)}</div>`;
+                setStatus('Render failed: ' + (e.message || String(e)), 'error');
+            }
+        };
+
+        window.loadSample = function(name) {
+            const sampleFn = window.__samples[name];
+            if (sampleFn) {
+                document.getElementById('d2-editor').value = sampleFn();
+                renderDiagram();
+            }
+        };
+
+        window.downloadSvg = function() {
+            const preview = document.getElementById('preview');
+            const svgElement = preview.querySelector('svg');
+            if (!svgElement) {
+                alert('No diagram to download');
+                return;
+            }
+
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        function setStatus(text, type) {
+            const bar = document.getElementById('status-bar');
+            const textEl = document.getElementById('status-text');
+            textEl.textContent = text;
+            bar.className = 'status-bar' + (type ? ' ' + type : '');
+        }
+
+        // Hide loading overlay when ready
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+            }, 1000);
+        });
+
+        // Keyboard shortcut: Ctrl+Enter to render
+        document.getElementById('d2-editor').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                renderDiagram();
+            }
+        });
+    </script>
+</body>
+</html>
