@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM
+        run: wasm-pack build --release --out-dir pkg
+
+      - name: Package Release
+        run: |
+          mkdir -p release/pkg
+          cp index.html release/
+          cp pkg/tala_diagram_app.js release/pkg/
+          cp pkg/tala_diagram_app_bg.js release/pkg/
+          cp pkg/tala_diagram_app_bg.wasm release/pkg/
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          gh release create "$TAG" \
+            --title "Release ${TAG}" \
+            --generate-notes \
+            release/index.html \
+            release/pkg/tala_diagram_app.js \
+            release/pkg/tala_diagram_app_bg.js \
+            release/pkg/tala_diagram_app_bg.wasm

@@ -25,16 +25,11 @@ This project provides a Rust library compiled to WebAssembly that bridges to the
 ## Build
 
 ```bash
-# Build the WASM module
-wasm-pack build --target web
-
-# This creates the pkg/ directory with:
-# - pkg/tala_diagram_app.js
-# - pkg/tala_diagram_app_bg.wasm
-# - pkg/tala_diagram_app.d.ts
+# Build the WASM module for development
+wasm-pack build --release --out-dir pkg
 ```
 
-## Run
+## Development Server
 
 After building, serve the project root with a local HTTP server:
 
@@ -51,6 +46,79 @@ static-web-server --port 8080
 ```
 
 Then open `http://localhost:8080/index.html` in your browser.
+
+## Release Build
+
+### Local Build
+
+To package the app for deployment to any static web server:
+
+```bash
+./build-release.sh
+```
+
+This creates a `release/` directory containing only the files needed to run the app:
+
+```
+release/
+├── index.html
+└── pkg/
+    ├── tala_diagram_app.js
+    ├── tala_diagram_app_bg.js
+    └── tala_diagram_app_bg.wasm
+```
+
+The release package is approximately **80KB** and has no server-side dependencies.
+
+### GitHub Actions Release
+
+Push a version tag to automatically build and publish a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The GitHub Actions workflow (`.github/workflows/release.yml`) will:
+
+1. Build the WASM module
+2. Package the release files
+3. Create a GitHub Release with downloadable artifacts
+
+You can also trigger the workflow manually from the **Actions** tab → **Release** → **Run workflow**.
+
+### Deploying the Release
+
+Copy the `release/` directory to any static web server:
+
+**nginx:**
+```nginx
+server {
+    listen 80;
+    server_name diagrams.example.com;
+    root /path/to/release;
+    index index.html;
+}
+```
+
+**Apache:**
+```apache
+DocumentRoot "/path/to/release"
+```
+
+**GitHub Pages:**
+```bash
+# Push release/ contents to a gh-pages branch
+gh-pages-publish release/
+```
+
+**Python (quick test):**
+```bash
+cd release && python3 -m http.server 8080
+```
+
+**Any static hosting** (Netlify, Vercel, S3 + CloudFront, etc.):
+Simply upload the contents of the `release/` directory.
 
 ## Usage
 
@@ -118,13 +186,21 @@ The Rust library exposes the following functions to JavaScript:
 ```
 tala-diagram-app/
 ├── Cargo.toml          # Rust package configuration
+├── build-release.sh    # Release packaging script
 ├── index.html          # Web application
 ├── src/
 │   └── lib.rs          # Rust library with WASM bindings
-└── pkg/                # Generated WASM output (after build)
-    ├── tala_diagram_app.js
-    ├── tala_diagram_app_bg.wasm
-    └── tala_diagram_app.d.ts
+├── pkg/                # Generated WASM output (after build, gitignored)
+│   ├── tala_diagram_app.js
+│   ├── tala_diagram_app_bg.js
+│   ├── tala_diagram_app_bg.wasm
+│   └── tala_diagram_app.d.ts
+└── release/            # Production release (after ./build-release.sh, gitignored)
+    ├── index.html
+    └── pkg/
+        ├── tala_diagram_app.js
+        ├── tala_diagram_app_bg.js
+        └── tala_diagram_app_bg.wasm
 ```
 
 ## Dependencies
