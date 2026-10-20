@@ -424,6 +424,7 @@
                     <button onclick="loadSample('basic')">Basic</button>
                     <button onclick="loadSample('architecture')">Architecture</button>
                     <button onclick="loadSample('sequence')">Sequence</button>
+                    <button onclick="loadSample('aws')">AWS</button>
                 </div>
                 <select id="layout-select" onchange="renderDiagram()">
                     <option value="tala" selected>TALA</option>
@@ -455,6 +456,7 @@
             <div class="preview-panel">
                 <div class="panel-header">
                     <span>Preview</span>
+                    <button onclick="copySvg()">Copy SVG</button>
                     <button onclick="downloadSvg()">Download SVG</button>
                 </div>
                 <div class="preview-container" id="preview">
@@ -480,14 +482,15 @@
 
     <!-- Load our Rust WASM module -->
     <script type="module">
-        import init, { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence } from './pkg/tala_diagram_app.js';
+        import init, { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws } from './pkg/tala_diagram_app.js';
         import { D2 } from '@d2lang/d2';
 
         // Expose samples globally
         window.__samples = {
             basic: sample_diagram,
             architecture: sample_architecture,
-            sequence: sample_sequence
+            sequence: sample_sequence,
+            aws: sample_aws
         };
 
         let wasmInitialized = false;
@@ -575,6 +578,23 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        };
+
+        window.copySvg = async function() {
+            const preview = document.getElementById('preview');
+            const svgElement = preview.querySelector('svg');
+            if (!svgElement) {
+                alert('No diagram to copy');
+                return;
+            }
+
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            try {
+                await navigator.clipboard.writeText(svgData);
+                setStatus('SVG copied to clipboard', 'success');
+            } catch (e) {
+                setStatus('Failed to copy: ' + e.message, 'error');
+            }
         };
 
         function setStatus(text, type) {
