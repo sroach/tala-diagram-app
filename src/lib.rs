@@ -286,7 +286,7 @@ server: {
   Application Server
 }
 database: {
-  shape: database
+  shape: cylinder
   Database
 }
 

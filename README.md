@@ -47,9 +47,23 @@ static-web-server --port 8080
 
 Then open `http://localhost:8080/index.html` in your browser.
 
-## Release Build
+## Installation
 
-### Local Build
+### Quick Start — Download the Zip
+
+1. Go to the **Releases** page on GitHub
+2. Download `tala-diagram-app.zip` from the latest release
+3. Extract it into your web directory:
+
+```bash
+unzip tala-diagram-app.zip -d /var/www/html/diagrams/
+```
+
+That's it — open `index.html` in a browser or point your web server at the extracted folder.
+
+### Building from Source
+
+#### Local Build
 
 To package the app for deployment to any static web server:
 
@@ -57,7 +71,7 @@ To package the app for deployment to any static web server:
 ./build-release.sh
 ```
 
-This creates a `release/` directory containing only the files needed to run the app:
+This creates a `release/` directory and a `tala-diagram-app.zip` archive:
 
 ```
 release/
@@ -70,7 +84,7 @@ release/
 
 The release package is approximately **80KB** and has no server-side dependencies.
 
-### GitHub Actions Release
+#### GitHub Actions Release
 
 Push a version tag to automatically build and publish a release:
 
@@ -82,28 +96,28 @@ git push origin v0.1.0
 The GitHub Actions workflow (`.github/workflows/release.yml`) will:
 
 1. Build the WASM module
-2. Package the release files
-3. Create a GitHub Release with downloadable artifacts
+2. Package the release files into a zip archive
+3. Create a GitHub Release with `tala-diagram-app.zip` as a downloadable artifact
 
 You can also trigger the workflow manually from the **Actions** tab → **Release** → **Run workflow**.
 
 ### Deploying the Release
 
-Copy the `release/` directory to any static web server:
+Extract the zip into your web directory, or copy the `release/` folder to any static web server:
 
 **nginx:**
 ```nginx
 server {
     listen 80;
     server_name diagrams.example.com;
-    root /path/to/release;
+    root /path/to/extracted-folder;
     index index.html;
 }
 ```
 
 **Apache:**
 ```apache
-DocumentRoot "/path/to/release"
+DocumentRoot "/path/to/extracted-folder"
 ```
 
 **GitHub Pages:**
@@ -118,7 +132,7 @@ cd release && python3 -m http.server 8080
 ```
 
 **Any static hosting** (Netlify, Vercel, S3 + CloudFront, etc.):
-Simply upload the contents of the `release/` directory.
+Simply upload the extracted files.
 
 ## Usage
 

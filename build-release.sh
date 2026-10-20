@@ -47,10 +47,23 @@ echo ""
 TOTAL_SIZE=$(du -sh "$RELEASE_DIR" | cut -f1)
 echo "Total size: $TOTAL_SIZE"
 echo ""
+
+# Step 4: Create zip archive
+echo "Creating zip archive..."
+ZIP_NAME="tala-diagram-app.zip"
+cd "$RELEASE_DIR"
+zip -r "../$ZIP_NAME" . > /dev/null
+cd "$SCRIPT_DIR"
+ZIP_SIZE=$(stat -f%z "$ZIP_NAME" 2>/dev/null || stat -c%s "$ZIP_NAME" 2>/dev/null)
+echo "Zip archive: $ZIP_NAME ($ZIP_SIZE bytes)"
+echo ""
+
 echo "=== Done! ==="
 echo ""
-echo "To deploy, copy the $RELEASE_DIR/ folder to any static web server."
-echo "For example:"
+echo "To deploy, extract the zip into your web directory:"
+echo "  unzip tala-diagram-app.zip -d /path/to/web/root/"
+echo ""
+echo "Or copy the $RELEASE_DIR/ folder to any static web server:"
 echo "  - nginx: point root to $RELEASE_DIR/"
 echo "  - Apache: point DocumentRoot to $RELEASE_DIR/"
 echo "  - GitHub Pages: push $RELEASE_DIR/ contents to gh-pages branch"
