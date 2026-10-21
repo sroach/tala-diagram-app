@@ -605,10 +605,17 @@
         }
     </script>
 
-    <!-- Load our Rust WASM module -->
+    <!-- Load @d2lang/d2 from CDN -->
     <script type="module">
-        import init, { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws } from './pkg/tala_diagram_app.js';
         import { D2 } from '@d2lang/d2';
+        window.__D2 = D2;
+    </script>
+
+    <!-- Load our Rust WASM module (no-modules target, no ES module WASM imports) -->
+    <script src="./pkg/tala_diagram_app.js"></script>
+    <script>
+        // wasm_bindgen exposes: init, initSync, render_d2_to_svg, sample_diagram, etc.
+        const { init, render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws } = wasm_bindgen;
 
         // Expose samples globally
         window.__samples = {
@@ -794,10 +801,11 @@
         async function initWasm() {
             try {
                 // Fetch WASM binary manually to avoid MIME type issues on GitHub Pages
+                // and local file:// opens
                 const wasmResponse = await fetch('./pkg/tala_diagram_app_bg.wasm');
                 const wasmBytes = await wasmResponse.arrayBuffer();
                 const wasmModule = await WebAssembly.compile(wasmBytes);
-                await init(wasmModule);
+                await init({ module: wasmModule });
                 wasmInitialized = true;
                 console.log('WASM module initialized');
                 restoreDraft();
@@ -808,8 +816,18 @@
             }
         }
 
-        // Initialize WASM (D2 is imported, so no need to wait)
-        initWasm();
+        // Wait for D2 to load from CDN, then initialize WASM
+        function waitForD2AndInit() {
+            const check = () => {
+                if (window.__D2) {
+                    initWasm();
+                } else {
+                    setTimeout(check, 50);
+                }
+            };
+            check();
+        }
+        waitForD2AndInit();
 
         // --- Auto-Render ---
         let renderTimeout = null;
@@ -1024,7 +1042,8 @@
             const startTime = performance.now();
 
             try {
-                // Use D2 directly since the Rust module bridges to it
+                // Use D2 from CDN (exposed as window.__D2)
+                const D2 = window.__D2;
                 const d2 = new D2();
 
                 const compileResult = await d2.compile({

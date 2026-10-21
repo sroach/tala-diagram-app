@@ -12,9 +12,11 @@ RELEASE_DIR="release"
 echo "=== TALA Diagram App - Release Build ==="
 echo ""
 
-# Step 1: Build WASM
+# Step 1: Build WASM (no-modules target avoids ES module WASM imports)
 echo "[1/3] Building WASM module..."
-wasm-pack build --release --out-dir pkg
+# Clean pkg directory to remove artifacts from previous builds with different targets
+rm -rf pkg
+wasm-pack build --release --target no-modules --out-dir pkg
 echo "WASM build complete."
 echo ""
 
@@ -30,8 +32,8 @@ cp index.html "$RELEASE_DIR/"
 cp .nojekyll "$RELEASE_DIR/"
 
 # Copy only the files needed at runtime (not TypeScript defs or README)
+# With --target no-modules, only one JS file is produced (no _bg.js)
 cp pkg/tala_diagram_app.js "$RELEASE_DIR/pkg/"
-cp pkg/tala_diagram_app_bg.js "$RELEASE_DIR/pkg/"
 cp pkg/tala_diagram_app_bg.wasm "$RELEASE_DIR/pkg/"
 
 echo "Release packaged in $RELEASE_DIR/"
@@ -54,6 +56,7 @@ echo ""
 # Step 4: Create zip archive
 echo "Creating zip archive..."
 ZIP_NAME="tala-diagram-app.zip"
+rm -f "$ZIP_NAME"
 cd "$RELEASE_DIR"
 zip -r "../$ZIP_NAME" . > /dev/null
 cd "$SCRIPT_DIR"

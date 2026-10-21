@@ -35,7 +35,7 @@ jobs:
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM
-        run: wasm-pack build --release --out-dir pkg
+        run: wasm-pack build --release --target no-modules --out-dir pkg
 
       - name: Package for Pages
         run: |
@@ -43,7 +43,6 @@ jobs:
           cp index.html docs/
           cp .nojekyll docs/
           cp pkg/tala_diagram_app.js docs/pkg/
-          cp pkg/tala_diagram_app_bg.js docs/pkg/
           cp pkg/tala_diagram_app_bg.wasm docs/pkg/
 
       - name: Upload artifact

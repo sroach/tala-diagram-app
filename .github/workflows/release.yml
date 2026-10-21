@@ -26,14 +26,14 @@ jobs:
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM
-        run: wasm-pack build --release --out-dir pkg
+        run: wasm-pack build --release --target no-modules --out-dir pkg
 
       - name: Package Release
         run: |
           mkdir -p release/pkg
           cp index.html release/
+          cp .nojekyll release/
           cp pkg/tala_diagram_app.js release/pkg/
-          cp pkg/tala_diagram_app_bg.js release/pkg/
           cp pkg/tala_diagram_app_bg.wasm release/pkg/
           cd release && zip -r ../tala-diagram-app.zip .
 
