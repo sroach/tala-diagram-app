@@ -793,7 +793,11 @@
 
         async function initWasm() {
             try {
-                await init();
+                // Fetch WASM binary manually to avoid MIME type issues on GitHub Pages
+                const wasmResponse = await fetch('./pkg/tala_diagram_app_bg.wasm');
+                const wasmBytes = await wasmResponse.arrayBuffer();
+                const wasmModule = await WebAssembly.compile(wasmBytes);
+                await init(wasmModule);
                 wasmInitialized = true;
                 console.log('WASM module initialized');
                 restoreDraft();
