@@ -614,8 +614,9 @@
     <!-- Load our Rust WASM module (no-modules target, no ES module WASM imports) -->
     <script src="./pkg/tala_diagram_app.js"></script>
     <script>
-        // wasm_bindgen exposes: init, initSync, render_d2_to_svg, sample_diagram, etc.
-        const { init, render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws } = wasm_bindgen;
+        // With --target no-modules, wasm_bindgen IS the init function.
+        // Exports (render_d2_to_svg, sample_diagram, etc.) are properties on the function.
+        const { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws } = wasm_bindgen;
 
         // Expose samples globally
         window.__samples = {
@@ -805,7 +806,8 @@
                 const wasmResponse = await fetch('./pkg/tala_diagram_app_bg.wasm');
                 const wasmBytes = await wasmResponse.arrayBuffer();
                 const wasmModule = await WebAssembly.compile(wasmBytes);
-                await init({ module: wasmModule });
+                // wasm_bindgen IS the init function (no-modules target)
+                await wasm_bindgen({ module: wasmModule });
                 wasmInitialized = true;
                 console.log('WASM module initialized');
                 restoreDraft();
@@ -1043,18 +1045,15 @@
 
             try {
                 // Use D2 from CDN (exposed as window.__D2)
-                const D2 = window.__D2;
-                const d2 = new D2();
+                const D2Class = window.__D2;
+                const d2 = new D2Class();
 
-                const compileResult = await d2.compile({
-                    fs: { index: source },
-                    options: {
-                        layout: layout,
-                        sketch: sketch
-                    }
+                const compileResult = await d2.compile(source, {
+                    layout: layout,
+                    sketch: sketch
                 });
 
-                const svg = await d2.render(compileResult.diagram, compileResult.options);
+                const svg = await d2.render(compileResult.diagram, compileResult.renderOptions);
                 await d2.dispose();
 
                 // Discard stale render results
