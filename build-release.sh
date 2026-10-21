@@ -26,6 +26,9 @@ mkdir -p "$RELEASE_DIR/pkg"
 # Copy index.html
 cp index.html "$RELEASE_DIR/"
 
+# Disable Jekyll processing to prevent binary file corruption
+cp .nojekyll "$RELEASE_DIR/"
+
 # Copy only the files needed at runtime (not TypeScript defs or README)
 cp pkg/tala_diagram_app.js "$RELEASE_DIR/pkg/"
 cp pkg/tala_diagram_app_bg.js "$RELEASE_DIR/pkg/"

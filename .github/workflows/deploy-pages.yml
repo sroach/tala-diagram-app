@@ -41,6 +41,7 @@ jobs:
         run: |
           mkdir -p docs/pkg
           cp index.html docs/
+          cp .nojekyll docs/
           cp pkg/tala_diagram_app.js docs/pkg/
           cp pkg/tala_diagram_app_bg.js docs/pkg/
           cp pkg/tala_diagram_app_bg.wasm docs/pkg/

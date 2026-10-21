@@ -1,0 +1,2 @@
+# This file disables Jekyll processing on GitHub Pages.
+# Without it, Jekyll may corrupt binary files like .wasm.
