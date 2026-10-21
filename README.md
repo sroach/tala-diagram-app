@@ -219,6 +219,7 @@ tala-diagram-app/
 
 ## Dependencies
 
+
 - **wasm-bindgen**: Rust ↔ JavaScript interop
 - **wasm-bindgen-futures**: Async/await support for WASM
 - **js-sys**: JavaScript type bindings
