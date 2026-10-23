@@ -179,22 +179,92 @@
             color: var(--color-text-tertiary);
         }
 
-        .editor-textarea {
+        .editor-wrapper {
             flex: 1;
-            padding: var(--spacing-lg);
-            border: none;
-            outline: none;
-            resize: none;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+        }
+
+        /* Simple editor with line numbers and syntax highlighting */
+        .line-numbers {
+            width: 48px;
+            padding: var(--spacing-lg) var(--spacing-xs) 0 var(--spacing-xs);
             font-family: var(--font-mono);
             font-size: 13px;
             line-height: 1.7;
+            color: var(--color-text-tertiary);
             background: var(--color-surface);
-            color: var(--color-text-primary);
-            tab-size: 2;
+            border-right: 1px solid var(--color-border);
+            text-align: right;
+            user-select: none;
+            overflow: hidden;
+            flex-shrink: 0;
         }
 
-        .editor-textarea::placeholder {
-            color: var(--color-text-tertiary);
+        .line-numbers div {
+            height: calc(13px * 1.7);
+        }
+
+        .editor-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .editor-highlight,
+        .editor-textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: var(--spacing-lg);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: auto;
+            tab-size: 2;
+            -moz-tab-size: 2;
+        }
+
+        .editor-highlight {
+            pointer-events: none;
+            color: var(--color-text-primary);
+            background: var(--color-surface);
+            z-index: 1;
+        }
+
+        .editor-textarea {
+            resize: none;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: transparent;
+            z-index: 2;
+            caret-color: var(--color-text-primary);
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* D2 syntax highlighting tokens */
+        .hl-keyword { color: #D73A49; font-weight: 500; }
+        .hl-string { color: #032F62; }
+        .hl-number { color: #933; }
+        .hl-comment { color: var(--color-text-tertiary); font-style: italic; }
+        .hl-operator { color: var(--color-text-secondary); }
+        .hl-property { color: #0550AE; }
+        .hl-shape { color: var(--color-secondary); }
+        .hl-boolean { color: #D97706; }
+
+        @media (prefers-color-scheme: dark) {
+            .hl-keyword { color: #FF7B72; font-weight: 500; }
+            .hl-string { color: #FFA657; }
+            .hl-number { color: #F97583; }
+            .hl-property { color: #79B8FF; }
+            .hl-shape { color: #D2A8FF; }
+            .hl-boolean { color: #F0883E; }
         }
 
         .preview-panel {
@@ -221,6 +291,30 @@
             max-width: 100%;
             height: auto;
             filter: drop-shadow(var(--shadow-md));
+            transform-origin: center center;
+            transition: transform var(--transition-normal);
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: var(--spacing-xs);
+            align-items: center;
+        }
+
+        .zoom-controls button {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            min-width: 28px;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .zoom-level {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            min-width: 40px;
+            text-align: center;
         }
 
         /* Status bar */
@@ -513,15 +607,6 @@
             text-transform: uppercase;
         }
 
-        /* Mirror element for cursor positioning */
-        .cursor-mirror {
-            position: absolute;
-            visibility: hidden;
-            white-space: pre;
-            word-wrap: break-word;
-            border: none;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -532,7 +617,6 @@
 
     <!-- Autocomplete popup -->
     <div class="autocomplete-popup" id="autocomplete-popup"></div>
-    <div class="cursor-mirror" id="cursor-mirror"></div>
 
     <div class="app-container">
         <header>
@@ -562,6 +646,7 @@
                 <div class="panel-header">
                     <span>D2 Source</span>
                     <div class="diagram-controls">
+                        <button onclick="formatD2()" title="Format D2 code (Ctrl+Shift+F)">Format</button>
                         <input type="text" class="diagram-name-input" id="diagram-name" placeholder="Diagram name" />
                         <button onclick="saveNamedDiagram()" title="Save with name">Save</button>
                         <select id="diagram-list" onchange="loadNamedDiagram(this.value)">
@@ -570,17 +655,24 @@
                         <button onclick="deleteNamedDiagram()" title="Delete selected diagram">Delete</button>
                     </div>
                 </div>
-                <textarea
-                    class="editor-textarea"
-                    id="d2-editor"
-                    placeholder="Enter your D2 diagram source here..."
-                    spellcheck="false"
-                ></textarea>
+                <div class="editor-wrapper" id="editor-container">
+                    <div class="line-numbers" id="line-numbers">1</div>
+                    <div class="editor-area">
+                        <div class="editor-highlight" id="editor-highlight"></div>
+                        <textarea class="editor-textarea" id="editor-textarea" spellcheck="false"></textarea>
+                    </div>
+                </div>
             </div>
 
             <div class="preview-panel">
                 <div class="panel-header">
                     <span>Preview</span>
+                    <div class="zoom-controls">
+                        <button onclick="zoomOut()" title="Zoom out">−</button>
+                        <span class="zoom-level" id="zoom-level">100%</span>
+                        <button onclick="zoomIn()" title="Zoom in">+</button>
+                        <button onclick="zoomReset()" title="Reset zoom">Reset</button>
+                    </div>
                     <button onclick="copySvg()">Copy SVG</button>
                     <button onclick="downloadSvg()">Download SVG</button>
                 </div>
@@ -596,7 +688,7 @@
         </div>
     </div>
 
-    <!-- Load @d2lang/d2 from CDN using import map -->
+    <!-- Load @d2lang/d2 from CDN (ES module via import map) -->
     <script type="importmap">
         {
             "imports": {
@@ -605,10 +697,198 @@
         }
     </script>
 
-    <!-- Load @d2lang/d2 from CDN -->
+    <!-- Load D2 as ES module -->
     <script type="module">
         import { D2 } from '@d2lang/d2';
         window.__D2 = D2;
+    </script>
+
+    <script>
+        // --- Simple D2 Editor: textarea + syntax highlight overlay ---
+        (function() {
+            var textarea = document.getElementById('editor-textarea');
+            var highlight = document.getElementById('editor-highlight');
+            var lineNumbers = document.getElementById('line-numbers');
+
+            var keywords = {
+                'vars': true, 'style': true, 'styles': true, 'layers': true,
+                'scenarios': true, 'steps': true, 'keys': true, 'animations': true,
+                'direction': true, 'shape': true, 'constraint': true, 'import': true,
+                'include': true, 'inherit': true, 'spread': true, 'md': true,
+                'latex': true, 'label': true, 'tooltip': true, 'link': true,
+                'icon': true, 'font': true, 'near': true, 'sequence': true,
+                'class': true, 'classes': true, 'd2-config': true
+            };
+
+            var shapes = {
+                'rectangle': true, 'square': true, 'round_rectangle': true,
+                'round_square': true, 'hexagon': true, 'octagon': true,
+                'diamond': true, 'parallelogram': true, 'stored_data': true,
+                'cylinder': true, 'page': true, 'document': true, 'person': true,
+                'cloud': true, 'circle': true, 'triangle': true, 'star': true,
+                'package': true, 'queue': true, 'database': true
+            };
+
+            var styleProps = {
+                'fill': true, 'stroke': true, 'stroke-width': true, 'stroke-dash': true,
+                'border-radius': true, 'shadow': true, 'opacity': true, 'bold': true,
+                'italic': true, 'font-color': true, 'font-size': true, 'font-family': true,
+                'double-border': true, 'multiple': true, 'gradient': true,
+                'width': true, 'height': true
+            };
+
+            var booleans = { 'true': true, 'false': true, 'null': true };
+
+            function escapeHtml(s) {
+                return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function highlightD2(source) {
+                var result = '';
+                var i = 0;
+                var len = source.length;
+
+                while (i < len) {
+                    var ch = source[i];
+
+                    // Comments
+                    if (ch === '#') {
+                        var end = source.indexOf('\n', i);
+                        if (end === -1) end = len;
+                        result += '<span class="hl-comment">' + escapeHtml(source.substring(i, end)) + '</span>';
+                        i = end;
+                        continue;
+                    }
+
+                    // Strings
+                    if (ch === '"') {
+                        var j = i + 1;
+                        while (j < len) {
+                            if (source[j] === '\\' && j + 1 < len) { j += 2; continue; }
+                            if (source[j] === '"') { j++; break; }
+                            j++;
+                        }
+                        result += '<span class="hl-string">' + escapeHtml(source.substring(i, j)) + '</span>';
+                        i = j;
+                        continue;
+                    }
+
+                    // Numbers
+                    if (/[0-9]/.test(ch)) {
+                        var j = i;
+                        while (j < len && /[0-9.]/.test(source[j])) j++;
+                        result += '<span class="hl-number">' + escapeHtml(source.substring(i, j)) + '</span>';
+                        i = j;
+                        continue;
+                    }
+
+                    // Operators
+                    if (source.substring(i, i + 2) === '->') {
+                        result += '<span class="hl-operator">-&gt;</span>';
+                        i += 2;
+                        continue;
+                    }
+                    if (source.substring(i, i + 2) === '=>') {
+                        result += '<span class="hl-operator">=&gt;</span>';
+                        i += 2;
+                        continue;
+                    }
+
+                    // Words (keywords, shapes, style props)
+                    if (/[a-zA-Z_]/.test(ch)) {
+                        var j = i;
+                        while (j < len && /[a-zA-Z0-9_\-]/.test(source[j])) j++;
+                        var word = source.substring(i, j);
+                        var lower = word.toLowerCase();
+
+                        if (keywords.hasOwnProperty(lower)) {
+                            result += '<span class="hl-keyword">' + escapeHtml(word) + '</span>';
+                        } else if (shapes.hasOwnProperty(lower)) {
+                            result += '<span class="hl-shape">' + escapeHtml(word) + '</span>';
+                        } else if (styleProps.hasOwnProperty(lower)) {
+                            result += '<span class="hl-property">' + escapeHtml(word) + '</span>';
+                        } else if (booleans.hasOwnProperty(lower)) {
+                            result += '<span class="hl-boolean">' + escapeHtml(word) + '</span>';
+                        } else {
+                            result += escapeHtml(word);
+                        }
+                        i = j;
+                        continue;
+                    }
+
+                    // Everything else
+                    result += escapeHtml(ch);
+                    i++;
+                }
+
+                return result;
+            }
+
+            function updateHighlight() {
+                var val = textarea.value;
+                highlight.innerHTML = highlightD2(val);
+
+                // Update line numbers
+                var lines = val.split('\n');
+                lineNumbers.innerHTML = '';
+                for (var l = 1; l <= lines.length; l++) {
+                    var numEl = document.createElement('div');
+                    numEl.textContent = l;
+                    lineNumbers.appendChild(numEl);
+                }
+            }
+
+            function syncScroll() {
+                highlight.scrollTop = textarea.scrollTop;
+                highlight.scrollLeft = textarea.scrollLeft;
+                lineNumbers.scrollTop = textarea.scrollTop;
+            }
+
+            textarea.addEventListener('input', function() {
+                updateHighlight();
+                if (typeof window.scheduleSave === 'function') window.scheduleSave();
+                if (typeof window.scheduleRender === 'function') window.scheduleRender();
+                // Trigger autocomplete
+                if (typeof window.triggerAutocomplete === 'function') {
+                    setTimeout(function() { window.triggerAutocomplete(); }, 10);
+                }
+            });
+
+            textarea.addEventListener('scroll', syncScroll);
+
+            // Handle Tab key for indentation
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    var start = this.selectionStart;
+                    var end = this.selectionEnd;
+                    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+                    this.selectionStart = this.selectionEnd = start + 2;
+                    this.dispatchEvent(new Event('input'));
+                }
+                // Ctrl+Enter to render
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (typeof window.renderDiagram === 'function') window.renderDiagram();
+                }
+                // Ctrl+Shift+F to format
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+                    e.preventDefault();
+                    if (typeof window.formatD2 === 'function') window.formatD2();
+                }
+            });
+
+            // Expose editor helpers globally
+            window.getEditorValue = function() { return textarea.value; };
+            window.setEditorValue = function(value) {
+                textarea.value = value;
+                updateHighlight();
+            };
+            window.focusEditor = function() { textarea.focus(); };
+
+            // Initial highlight
+            updateHighlight();
+        })();
     </script>
 
     <!-- Load our Rust WASM module (no-modules target, no ES module WASM imports) -->
@@ -699,7 +979,7 @@
                 return;
             }
 
-            const source = document.getElementById('d2-editor').value;
+            const source = window.getEditorValue();
             if (!source.trim()) {
                 setStatus('Nothing to save: editor is empty', 'error');
                 return;
@@ -728,7 +1008,7 @@
                 return;
             }
 
-            document.getElementById('d2-editor').value = diagram.content;
+            window.setEditorValue(diagram.content);
             document.getElementById('diagram-name').value = name;
             renderDiagram();
             setStatus(`Loaded "${name}"`, 'success');
@@ -763,7 +1043,7 @@
             const store = getDiagramsStore();
             if (store.current && store.diagrams[store.current]) {
                 const diagram = store.diagrams[store.current];
-                document.getElementById('d2-editor').value = diagram.content;
+                window.setEditorValue(diagram.content);
                 document.getElementById('diagram-name').value = store.current;
                 renderDiagram();
                 updateDiagramList();
@@ -774,7 +1054,7 @@
         function scheduleSave() {
             clearTimeout(saveTimeout);
             const name = document.getElementById('diagram-name').value.trim();
-            const source = document.getElementById('d2-editor').value;
+            const source = window.getEditorValue();
 
             if (!source.trim()) {
                 return;
@@ -837,7 +1117,7 @@
 
         function scheduleRender() {
             clearTimeout(renderTimeout);
-            const source = document.getElementById('d2-editor').value;
+            const source = window.getEditorValue();
             if (!source.trim()) {
                 return;
             }
@@ -870,7 +1150,6 @@
         ];
 
         const autocompletePopup = document.getElementById('autocomplete-popup');
-        const cursorMirror = document.getElementById('cursor-mirror');
         let selectedCompletionIndex = 0;
         let currentCompletions = [];
 
@@ -927,110 +1206,16 @@
             return { token, beforeToken, start };
         }
 
-        function getCursorCoordinates(textarea) {
-            const { selectionStart, scrollLeft, scrollTop, clientWidth, clientHeight } = textarea;
-            const style = window.getComputedStyle(textarea);
-            const paddingLeft = parseFloat(style.paddingLeft);
-            const paddingTop = parseFloat(style.paddingTop);
-
-            cursorMirror.style.font = style.font;
-            cursorMirror.style.padding = style.padding;
-            cursorMirror.style.border = style.border;
-            cursorMirror.style.boxSizing = style.boxSizing;
-            cursorMirror.style.width = style.width;
-            cursorMirror.style.height = style.height;
-            cursorMirror.style.lineHeight = style.lineHeight;
-            cursorMirror.style.letterSpacing = style.letterSpacing;
-            cursorMirror.style.textAlign = style.textAlign;
-            cursorMirror.style.tabSize = style.tabSize;
-            cursorMirror.style.wordWrap = style.wordWrap;
-            cursorMirror.style.whiteSpace = style.whiteSpace;
-            cursorMirror.style.overflowWrap = style.overflowWrap;
-            cursorMirror.style.textIndent = style.textIndent;
-
-            const text = textarea.value.substring(0, selectionStart);
-            cursorMirror.textContent = text;
-
-            const lastNewLine = text.lastIndexOf('\n');
-            const lastLineText = text.substring(lastNewLine + 1);
-            cursorMirror.textContent = lastLineText;
-
-            const mirrorRect = cursorMirror.getBoundingClientRect();
-            const textareaRect = textarea.getBoundingClientRect();
-
-            const charWidth = mirrorRect.width / lastLineText.length || 0;
-
-            return {
-                x: textareaRect.left + scrollLeft + paddingLeft + (lastLineText.length * charWidth),
-                y: textareaRect.top + scrollTop + paddingTop + (mirrorRect.height) + clientHeight - textareaRect.height
-            };
-        }
-
-        function showCompletions(completions, textarea) {
-            if (completions.length === 0) {
-                hideCompletions();
-                return;
-            }
-
-            currentCompletions = completions;
-            selectedCompletionIndex = 0;
-
-            autocompletePopup.innerHTML = '';
-            completions.forEach((comp, i) => {
-                const item = document.createElement('div');
-                item.className = 'autocomplete-item' + (i === 0 ? ' selected' : '');
-                item.innerHTML = `<span class="completion-label">${comp.label}</span><span class="completion-type">${comp.type}</span>`;
-                item.addEventListener('click', () => acceptCompletion(comp.label, textarea));
-                autocompletePopup.appendChild(item);
-            });
-
-            const coords = getCursorCoordinates(textarea);
-            autocompletePopup.style.left = coords.x + 'px';
-            autocompletePopup.style.top = coords.y + 'px';
-            autocompletePopup.classList.add('visible');
-        }
-
         function hideCompletions() {
             autocompletePopup.classList.remove('visible');
             currentCompletions = [];
             selectedCompletionIndex = 0;
         }
 
-        function acceptCompletion(label, textarea) {
-            const value = textarea.value;
-            const { selectionStart, selectionEnd } = textarea;
-
-            let start = selectionStart;
-            while (start > 0) {
-                const ch = value[start - 1];
-                if (ch === ' ' || ch === '\n' || ch === ':' || ch === '{' || ch === '}') break;
-                start--;
-            }
-
-            const before = value.substring(0, start);
-            const after = value.substring(selectionEnd);
-            textarea.value = before + label + after;
-            textarea.selectionStart = textarea.selectionEnd = start + label.length;
-            textarea.focus();
-            hideCompletions();
-            scheduleSave();
-            scheduleRender();
-        }
-
-        function navigateCompletions(direction, textarea) {
-            if (currentCompletions.length === 0) return;
-            selectedCompletionIndex = (selectedCompletionIndex + direction + currentCompletions.length) % currentCompletions.length;
-            const items = autocompletePopup.querySelectorAll('.autocomplete-item');
-            items.forEach((item, i) => {
-                item.classList.toggle('selected', i === selectedCompletionIndex);
-            });
-            items[selectedCompletionIndex]?.scrollIntoView({ block: 'nearest' });
-        }
-
         // Make render function available globally
         window.renderDiagram = async function(sequence) {
             sequence = sequence || 0;
-            const source = document.getElementById('d2-editor').value;
+            const source = window.getEditorValue();
             const layout = document.getElementById('layout-select').value;
             const sketch = document.getElementById('sketch-checkbox').checked;
             const preview = document.getElementById('preview');
@@ -1076,7 +1261,7 @@
         window.loadSample = function(name) {
             const sampleFn = window.__samples[name];
             if (sampleFn) {
-                document.getElementById('d2-editor').value = sampleFn();
+                window.setEditorValue(sampleFn());
                 renderDiagram();
             }
         };
@@ -1118,6 +1303,40 @@
             }
         };
 
+        // Zoom controls for SVG preview
+        let currentZoom = 1;
+        const ZOOM_STEP = 0.1;
+        const ZOOM_MIN = 0.1;
+        const ZOOM_MAX = 5;
+
+        function updateZoom() {
+            const preview = document.getElementById('preview');
+            const svgElement = preview.querySelector('svg');
+            if (svgElement) {
+                svgElement.style.transform = `scale(${currentZoom})`;
+            }
+            document.getElementById('zoom-level').textContent = Math.round(currentZoom * 100) + '%';
+        }
+
+        window.zoomIn = function() {
+            if (currentZoom < ZOOM_MAX) {
+                currentZoom = Math.min(currentZoom + ZOOM_STEP, ZOOM_MAX);
+                updateZoom();
+            }
+        };
+
+        window.zoomOut = function() {
+            if (currentZoom > ZOOM_MIN) {
+                currentZoom = Math.max(currentZoom - ZOOM_STEP, ZOOM_MIN);
+                updateZoom();
+            }
+        };
+
+        window.zoomReset = function() {
+            currentZoom = 1;
+            updateZoom();
+        };
+
         function setStatus(text, type) {
             const bar = document.getElementById('status-bar');
             const textEl = document.getElementById('status-text');
@@ -1132,66 +1351,148 @@
             }, 1000);
         });
 
-        // Keyboard shortcut: Ctrl+Enter to render; auto-save and auto-render on input; autocomplete
-        const editor = document.getElementById('d2-editor');
-        editor.addEventListener('keydown', (e) => {
-            // Ctrl+Enter: immediate render
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                clearTimeout(renderTimeout);
-                renderDiagram();
+        // Format D2 code using the D2 compiler's auto-format
+        window.formatD2 = async function() {
+            const source = window.getEditorValue();
+            if (!source.trim()) {
+                setStatus('Nothing to format', 'error');
+                return;
+            }
+            try {
+                const D2Class = window.__D2;
+                const d2 = new D2Class();
+                const compileResult = await d2.compile(source, {});
+                await d2.dispose();
+                // The compile result contains the formatted source
+                if (compileResult.source) {
+                    window.setEditorValue(compileResult.source);
+                    setStatus('Code formatted', 'success');
+                } else {
+                    setStatus('Code is already valid', 'success');
+                }
+            } catch (e) {
+                setStatus('Format failed: ' + (e.message || String(e)), 'error');
+            }
+        };
+
+        // Autocomplete trigger for plain textarea
+        window.triggerAutocomplete = function() {
+            var textarea = document.getElementById('editor-textarea');
+            if (!textarea) return;
+            var value = textarea.value;
+            var cursorPos = textarea.selectionStart;
+            var tokenInfo = extractToken(value, cursorPos);
+
+            if (tokenInfo.token.length >= 1) {
+                var completions = getCompletionsForToken(tokenInfo.token, tokenInfo.beforeToken);
+                showCompletionsForTextarea(completions, textarea);
+            } else {
+                hideCompletions();
+            }
+        };
+
+        // Show completions positioned relative to textarea cursor
+        function showCompletionsForTextarea(completions, textarea) {
+            if (completions.length === 0) {
                 hideCompletions();
                 return;
             }
 
-            // Autocomplete navigation
-            if (autocompletePopup.classList.contains('visible')) {
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    navigateCompletions(1, editor);
-                    return;
-                }
-                if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    navigateCompletions(-1, editor);
-                    return;
-                }
-                if (e.key === 'Tab' || (e.key === 'Enter' && !e.ctrlKey)) {
-                    e.preventDefault();
-                    if (currentCompletions[selectedCompletionIndex]) {
-                        acceptCompletion(currentCompletions[selectedCompletionIndex].label, editor);
-                    }
-                    return;
-                }
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    hideCompletions();
-                    return;
-                }
+            currentCompletions = completions;
+            selectedCompletionIndex = 0;
+
+            autocompletePopup.innerHTML = '';
+            completions.forEach(function(comp, i) {
+                var item = document.createElement('div');
+                item.className = 'autocomplete-item' + (i === 0 ? ' selected' : '');
+                item.innerHTML = '<span class="completion-label">' + comp.label + '</span><span class="completion-type">' + comp.type + '</span>';
+                item.addEventListener('click', function() { acceptCompletionForTextarea(comp.label, textarea); });
+                autocompletePopup.appendChild(item);
+            });
+
+            // Position popup near cursor using caret coordinates
+            var coords = getCaretCoordinates(textarea, textarea.selectionStart);
+            if (coords) {
+                var containerRect = document.getElementById('editor-container').getBoundingClientRect();
+                autocompletePopup.style.left = coords.left + 'px';
+                autocompletePopup.style.top = (coords.bottom + 4) + 'px';
+                autocompletePopup.classList.add('visible');
+            }
+        }
+
+        // Get caret pixel coordinates in textarea
+        function getCaretCoordinates(textarea, position) {
+            var container = document.getElementById('editor-container');
+            var rect = container.getBoundingClientRect();
+            var text = textarea.value.substring(0, position);
+            var lines = text.split('\n');
+            var lineIndex = lines.length - 1;
+            var colIndex = lines[lines.length - 1].length;
+
+            // Approximate position based on line/col
+            var lineHeight = 22.1; // 13px * 1.7 line-height
+            var charWidth = 7.8; // approximate monospace char width
+            var padding = 16; // var(--spacing-lg)
+            var lineNumbersWidth = 48;
+
+            return {
+                left: lineNumbersWidth + padding + colIndex * charWidth - textarea.scrollLeft,
+                top: padding + lineIndex * lineHeight - textarea.scrollTop,
+                bottom: padding + (lineIndex + 1) * lineHeight - textarea.scrollTop
+            };
+        }
+
+        function acceptCompletionForTextarea(label, textarea) {
+            var value = textarea.value;
+            var cursorPos = textarea.selectionStart;
+
+            var start = cursorPos;
+            while (start > 0) {
+                var ch = value[start - 1];
+                if (ch === ' ' || ch === '\n' || ch === ':' || ch === '{' || ch === '}') break;
+                start--;
             }
 
-            scheduleSave();
-            scheduleRender();
-        });
+            textarea.value = value.substring(0, start) + label + value.substring(cursorPos);
+            textarea.selectionStart = textarea.selectionEnd = start + label.length;
+            textarea.focus();
+            textarea.dispatchEvent(new Event('input'));
+            hideCompletions();
+            if (typeof window.scheduleSave === 'function') window.scheduleSave();
+            if (typeof window.scheduleRender === 'function') window.scheduleRender();
+        }
 
-        // Show completions on input
-        editor.addEventListener('input', () => {
-            const value = editor.value;
-            const cursorPos = editor.selectionStart;
-            const { token, beforeToken } = extractToken(value, cursorPos);
+        // Keyboard handler for autocomplete navigation
+        document.addEventListener('keydown', function(e) {
+            if (!autocompletePopup.classList.contains('visible')) return;
 
-            if (token.length >= 1) {
-                const completions = getCompletionsForToken(token, beforeToken);
-                showCompletions(completions, editor);
-            } else {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateCompletions(1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateCompletions(-1);
+            } else if (e.key === 'Tab' || e.key === 'Enter') {
+                e.preventDefault();
+                if (currentCompletions[selectedCompletionIndex]) {
+                    var textarea = document.getElementById('editor-textarea');
+                    acceptCompletionForTextarea(currentCompletions[selectedCompletionIndex].label, textarea);
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
                 hideCompletions();
             }
         });
 
-        // Hide completions on blur
-        editor.addEventListener('blur', () => {
-            setTimeout(hideCompletions, 100);
-        });
+        function navigateCompletions(direction) {
+            if (currentCompletions.length === 0) return;
+            selectedCompletionIndex = (selectedCompletionIndex + direction + currentCompletions.length) % currentCompletions.length;
+            var items = autocompletePopup.querySelectorAll('.autocomplete-item');
+            items.forEach(function(item, i) {
+                item.classList.toggle('selected', i === selectedCompletionIndex);
+            });
+            items[selectedCompletionIndex] && items[selectedCompletionIndex].scrollIntoView({ block: 'nearest' });
+        }
     </script>
 </body>
 </html>
