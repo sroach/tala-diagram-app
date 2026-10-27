@@ -1,6 +1,6 @@
 [package]
 name = "tala-diagram-app"
-version = "0.1.0"
+version = "0.4.1"
 edition = "2021"
 description = "A Rust-based web app using the TALA layout engine (via D2) to render diagrams from text, compiled to WebAssembly"
 license = "MPL-2.0"

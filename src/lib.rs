@@ -293,6 +293,12 @@ pub fn sample_sequence() -> String {
     "classes: {\n  premium-base: {\n    style: {\n      font-size: 14\n      bold: true\n      stroke-width: 2\n    }\n  }\n  tier-client: {\n    style: {\n      fill: \"#DBEAFE\"\n      stroke: \"#3B82F6\"\n      font-color: \"#1E40AF\"\n    }\n  }\n  tier-gateway: {\n    style: {\n      fill: \"#FEF3C7\"\n      stroke: \"#D97706\"\n      font-color: \"#92400E\"\n    }\n  }\n  tier-data: {\n    style: {\n      fill: \"#EDE9FE\"\n      stroke: \"#8B5CF6\"\n      font-color: \"#5B21B6\"\n    }\n  }\n}\n\nstyle: {\n  fill: \"#FFFFFF\"\n}\n\nsequence: {\n  shape: sequence_diagram\n  \n  User: {\n    class: [premium-base; tier-client]\n  }\n  \n  API: {\n    class: [premium-base; tier-gateway]\n  }\n  \n  Database: {\n    class: [premium-base; tier-data]\n  }\n  \n  User -> API: {\n    style: {\n      stroke: \"#3B82F6\"\n      stroke-width: 2\n    }\n  }\n  \n  API -> Database: {\n    style: {\n      stroke: \"#D97706\"\n      stroke-width: 2\n    }\n  }\n  \n  Database -> API: Result: {\n    style: {\n      stroke: \"#8B5CF6\"\n      stroke-width: 2\n      stroke-dash: 4\n    }\n  }\n  \n  API -> User: Response: {\n    style: {\n      stroke: \"#3B82F6\"\n      stroke-width: 2\n      stroke-dash: 4\n    }\n  }\n}".to_string()
 }
 
+/// Returns the app version from Cargo.toml
+#[wasm_bindgen]
+pub fn version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
 /// Returns a sample AWS architecture diagram
 #[wasm_bindgen]
 pub fn sample_aws() -> String {

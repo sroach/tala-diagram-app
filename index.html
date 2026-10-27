@@ -225,9 +225,11 @@
             line-height: 1.7;
             white-space: pre-wrap;
             word-wrap: break-word;
-            overflow: auto;
+            overflow-wrap: break-word;
             tab-size: 2;
             -moz-tab-size: 2;
+            box-sizing: border-box;
+            margin: 0;
         }
 
         .editor-highlight {
@@ -235,6 +237,7 @@
             color: var(--color-text-primary);
             background: var(--color-surface);
             z-index: 1;
+            overflow: auto;
         }
 
         .editor-textarea {
@@ -246,20 +249,21 @@
             z-index: 2;
             caret-color: var(--color-text-primary);
             -webkit-text-fill-color: transparent;
+            overflow: auto;
         }
 
-        /* D2 syntax highlighting tokens */
-        .hl-keyword { color: #D73A49; font-weight: 500; }
+        /* D2 syntax highlighting tokens - no font-weight/font-style changes to keep line metrics identical */
+        .hl-keyword { color: #D73A49; }
         .hl-string { color: #032F62; }
         .hl-number { color: #933; }
-        .hl-comment { color: var(--color-text-tertiary); font-style: italic; }
+        .hl-comment { color: var(--color-text-tertiary); }
         .hl-operator { color: var(--color-text-secondary); }
         .hl-property { color: #0550AE; }
         .hl-shape { color: var(--color-secondary); }
         .hl-boolean { color: #D97706; }
 
         @media (prefers-color-scheme: dark) {
-            .hl-keyword { color: #FF7B72; font-weight: 500; }
+            .hl-keyword { color: #FF7B72; }
             .hl-string { color: #FFA657; }
             .hl-number { color: #F97583; }
             .hl-property { color: #79B8FF; }
@@ -684,6 +688,7 @@
 
         <div class="status-bar" id="status-bar">
             <span id="status-text">Initializing...</span>
+            <span id="status-version"></span>
             <span id="status-time"></span>
         </div>
     </div>
@@ -826,7 +831,9 @@
 
             function updateHighlight() {
                 var val = textarea.value;
-                highlight.innerHTML = highlightD2(val);
+                // Add trailing newline to match textarea's rendering — textarea always renders
+                // the last line as if it has a newline after it, but a div does not
+                highlight.innerHTML = highlightD2(val) + '\n';
 
                 // Update line numbers
                 var lines = val.split('\n');
@@ -896,7 +903,7 @@
     <script>
         // With --target no-modules, wasm_bindgen IS the init function.
         // Exports (render_d2_to_svg, sample_diagram, etc.) are properties on the function.
-        const { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws } = wasm_bindgen;
+        const { render_d2_to_svg, sample_diagram, sample_architecture, sample_sequence, sample_aws, version } = wasm_bindgen;
 
         // Expose samples globally
         window.__samples = {
@@ -1090,6 +1097,10 @@
                 await wasm_bindgen({ module: wasmModule });
                 wasmInitialized = true;
                 console.log('WASM module initialized');
+                const v = version();
+                if (v) {
+                    document.getElementById('status-version').textContent = 'v' + v;
+                }
                 restoreDraft();
                 setStatus('Ready', 'success');
             } catch (e) {
